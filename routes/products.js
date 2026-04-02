@@ -33,6 +33,10 @@ router.get('/', async (req, res) => {
       query += ' ORDER BY price DESC';
     } else if (sort === 'newest') {
       query += ' ORDER BY created_at DESC';
+    } else if (sort === 'name_asc') {
+      query += ' ORDER BY name ASC';
+    } else if (sort === 'name_desc') {
+      query += ' ORDER BY name DESC';
     } else {
       query += ' ORDER BY id DESC';
     }
