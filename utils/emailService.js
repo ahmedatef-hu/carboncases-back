@@ -58,7 +58,7 @@ const sendVerificationEmail = async (email, code) => {
             </div>
             
             <div class="footer">
-              <p>&copy; 2024 Carbon Cases. All rights reserved.</p>
+              <p>&copy; 2026 Carbon Cases. All rights reserved.</p>
               <p>Premium Carbon Fiber Products</p>
             </div>
           </div>

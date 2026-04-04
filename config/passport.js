@@ -27,17 +27,20 @@ passport.use(new GoogleStrategy({
 
       // Create new user
       const [result] = await db.query(
-        'INSERT INTO users (name, email, google_id) VALUES (?, ?, ?)',
+        'INSERT INTO users (name, email, google_id) VALUES (?, ?, ?) RETURNING id',
         [name, email, googleId]
       );
 
+      console.log('✅ New user created:', result);
+
       const newUser = {
-        id: result.insertId,
+        id: result[0].id,
         name,
         email,
         google_id: googleId
       };
 
+      console.log('✅ Returning new user:', newUser);
       return done(null, newUser);
     } catch (error) {
       return done(error, null);

@@ -5,11 +5,7 @@ const { authenticateUser } = require('../middleware/auth');
 
 // Create new order
 router.post('/', authenticateUser, async (req, res) => {
-  const connection = await db.getConnection();
-  
   try {
-    await connection.beginTransaction();
-
     const { items, shippingAddress } = req.body;
     const userId = req.userId;
 
@@ -19,10 +15,16 @@ router.post('/', authenticateUser, async (req, res) => {
 
     // Validate products and calculate total
     const productIds = items.map(item => item.productId);
-    const [products] = await connection.query(
-      'SELECT id, price, stock FROM products WHERE id IN (?)',
-      [productIds]
+    
+    // Query products - works for both MySQL (IN) and PostgreSQL (= ANY)
+    const placeholders = productIds.map(() => '?').join(',');
+    const [products] = await db.query(
+      `SELECT id, price, stock, has_magsafe_option, price_without_magsafe, price_with_magsafe 
+       FROM products WHERE id IN (${placeholders})`,
+      productIds
     );
+
+    console.log('📦 Products fetched for order:', products);
 
     let totalPrice = 0;
     const orderItems = [];
@@ -31,45 +33,70 @@ router.post('/', authenticateUser, async (req, res) => {
       const product = products.find(p => p.id === item.productId);
       
       if (!product) {
-        await connection.rollback();
         return res.status(400).json({ message: `Product ${item.productId} not found` });
       }
 
       if (product.stock < item.quantity) {
-        await connection.rollback();
         return res.status(400).json({ message: `Insufficient stock for product ${item.productId}` });
       }
 
-      totalPrice += product.price * item.quantity;
+      // Determine price based on variant
+      let itemPrice = parseFloat(product.price);
+      
+      console.log(`🔍 Product ${product.id}:`, {
+        has_magsafe: product.has_magsafe_option,
+        variant: item.variant,
+        price_without: product.price_without_magsafe,
+        price_with: product.price_with_magsafe,
+        base_price: product.price
+      });
+      
+      if (item.variant && product.has_magsafe_option) {
+        if (item.variant === 'with_magsafe') {
+          itemPrice = parseFloat(product.price_with_magsafe);
+          console.log(`✅ Using WITH MagSafe price: ${itemPrice}`);
+        } else {
+          itemPrice = parseFloat(product.price_without_magsafe);
+          console.log(`✅ Using WITHOUT MagSafe price: ${itemPrice}`);
+        }
+      } else {
+        console.log(`✅ Using base price: ${itemPrice}`);
+      }
+
+      const itemTotal = itemPrice * item.quantity;
+      console.log(`💰 Item total: ${itemPrice} x ${item.quantity} = ${itemTotal}`);
+      
+      totalPrice += itemTotal;
       orderItems.push({
         productId: product.id,
         quantity: item.quantity,
-        price: product.price
+        price: itemPrice,
+        variant: item.variant || null
       });
     }
 
+    console.log(`💵 Total order price: ${totalPrice}`);
+
     // Create order
-    const [orderResult] = await connection.query(
-      'INSERT INTO orders (user_id, total_price, status, shipping_address) VALUES (?, ?, ?, ?)',
+    const [orderResult] = await db.query(
+      'INSERT INTO orders (user_id, total_price, status, shipping_address) VALUES (?, ?, ?, ?) RETURNING id',
       [userId, totalPrice, 'pending', shippingAddress]
     );
 
-    const orderId = orderResult.insertId;
+    const orderId = orderResult[0].id;
 
     // Insert order items and update stock
     for (const item of orderItems) {
-      await connection.query(
-        'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)',
-        [orderId, item.productId, item.quantity, item.price]
+      await db.query(
+        'INSERT INTO order_items (order_id, product_id, quantity, price, variant) VALUES (?, ?, ?, ?, ?)',
+        [orderId, item.productId, item.quantity, item.price, item.variant]
       );
 
-      await connection.query(
+      await db.query(
         'UPDATE products SET stock = stock - ? WHERE id = ?',
         [item.quantity, item.productId]
       );
     }
-
-    await connection.commit();
 
     res.status(201).json({
       message: 'Order placed successfully',
@@ -77,43 +104,34 @@ router.post('/', authenticateUser, async (req, res) => {
       totalPrice: totalPrice.toFixed(2)
     });
   } catch (error) {
-    await connection.rollback();
     console.error('Order creation error:', error);
     res.status(500).json({ message: 'Error creating order' });
-  } finally {
-    connection.release();
   }
 });
 
 // Get user's orders
 router.get('/my-orders', authenticateUser, async (req, res) => {
   try {
+    // Get orders
     const [orders] = await db.query(
-      `SELECT o.*, 
-        GROUP_CONCAT(
-          JSON_OBJECT(
-            'id', oi.id,
-            'productId', oi.product_id,
-            'productName', p.name,
-            'quantity', oi.quantity,
-            'price', oi.price,
-            'imageUrl', p.image_url
-          )
-        ) as items
-      FROM orders o
-      LEFT JOIN order_items oi ON o.id = oi.order_id
-      LEFT JOIN products p ON oi.product_id = p.id
-      WHERE o.user_id = ?
-      GROUP BY o.id
-      ORDER BY o.created_at DESC`,
+      `SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC`,
       [req.userId]
     );
 
-    // Parse JSON items
-    const ordersWithItems = orders.map(order => ({
-      ...order,
-      items: order.items ? JSON.parse(`[${order.items}]`) : []
-    }));
+    // Get items for each order
+    const ordersWithItems = await Promise.all(
+      orders.map(async (order) => {
+        const [items] = await db.query(
+          `SELECT oi.id, oi.product_id as "productId", oi.quantity, oi.price,
+                  p.name as "productName", p.image_url as "imageUrl"
+           FROM order_items oi
+           JOIN products p ON oi.product_id = p.id
+           WHERE oi.order_id = ?`,
+          [order.id]
+        );
+        return { ...order, items };
+      })
+    );
 
     res.json(ordersWithItems);
   } catch (error) {

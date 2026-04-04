@@ -36,10 +36,10 @@ router.get('/google/callback',
         { expiresIn: '7d' }
       );
 
-      console.log('🔵 Token generated, redirecting to complete profile');
+      console.log('🔵 Token generated, redirecting to auth callback');
       
-      // Redirect to complete profile page
-      res.redirect(`${process.env.FRONTEND_URL}/complete-profile?token=${token}`);
+      // Redirect to auth callback page (not complete-profile)
+      res.redirect(`${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
     } catch (error) {
       console.error('❌ Google callback error:', error);
       res.redirect(`${process.env.FRONTEND_URL}/login?error=auth_failed`);
@@ -67,7 +67,11 @@ router.post('/send-verification', [
 
     // Generate verification code
     const code = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    // Use UTC time for PostgreSQL
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+
+    console.log('📧 Generating verification code:', code);
+    console.log('⏰ Expires at:', expiresAt);
 
     // Store verification code
     await db.query(
@@ -132,10 +136,13 @@ router.post('/register', [
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { name, email, password, phone, address, verificationCode } = req.body;
+
+    console.log('📝 Registration attempt:', { email, verificationCode, name });
 
     // Verify the code
     const [verifications] = await db.query(
@@ -143,9 +150,14 @@ router.post('/register', [
       [email, verificationCode]
     );
 
+    console.log('🔍 Verification query result:', verifications);
+
     if (verifications.length === 0) {
+      console.log('❌ No valid verification code found');
       return res.status(400).json({ message: 'Invalid or expired verification code' });
     }
+
+    console.log('✅ Verification code valid, marking as verified');
 
     // Mark as verified
     await db.query(
@@ -156,8 +168,11 @@ router.post('/register', [
     // Check if user already exists
     const [existingUser] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
     if (existingUser.length > 0) {
+      console.log('❌ Email already registered');
       return res.status(400).json({ message: 'Email already registered' });
     }
+
+    console.log('✅ Creating new user...');
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);

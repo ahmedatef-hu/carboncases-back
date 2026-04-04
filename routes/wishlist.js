@@ -33,9 +33,19 @@ router.post('/', authenticateUser, async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    // Add to wishlist (ignore if already exists)
+    // Check if already in wishlist
+    const [existing] = await db.query(
+      'SELECT id FROM wishlist WHERE user_id = ? AND product_id = ?',
+      [req.userId, productId]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'Already in wishlist' });
+    }
+
+    // Add to wishlist
     await db.query(
-      'INSERT IGNORE INTO wishlist (user_id, product_id) VALUES (?, ?)',
+      'INSERT INTO wishlist (user_id, product_id) VALUES (?, ?)',
       [req.userId, productId]
     );
 

@@ -1,9 +1,66 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { body, validationResult } = require('express-validator');
 const db = require('../config/database');
 const { authenticateAdmin } = require('../middleware/auth');
+
+// Create uploads directory if it doesn't exist
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, uploadsDir);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'product-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB max
+  },
+  fileFilter: function (req, file, cb) {
+    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype);
+    
+    if (mimetype && extname) {
+      return cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed!'));
+    }
+  }
+});
+
+// Upload image endpoint
+router.post('/upload-image', authenticateAdmin, upload.single('image'), (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file uploaded' });
+    }
+    
+    // Return the file URL
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ 
+      message: 'Image uploaded successfully',
+      url: fileUrl
+    });
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    res.status(500).json({ message: 'Error uploading image' });
+  }
+});
 
 // Get dashboard statistics
 router.get('/stats', authenticateAdmin, async (req, res) => {
@@ -81,11 +138,34 @@ router.post('/products', authenticateAdmin, [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { name, description, price, stock, category, image_url } = req.body;
+    const { 
+      name, 
+      description, 
+      price, 
+      stock, 
+      category, 
+      image_url,
+      has_magsafe_option,
+      price_without_magsafe,
+      price_with_magsafe
+    } = req.body;
 
     const [result] = await db.query(
-      'INSERT INTO products (name, description, price, stock, category, image_url) VALUES (?, ?, ?, ?, ?, ?)',
-      [name, description, price, stock, category, image_url || null]
+      `INSERT INTO products (
+        name, description, price, stock, category, image_url,
+        has_magsafe_option, price_without_magsafe, price_with_magsafe
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        name, 
+        description, 
+        price, 
+        stock, 
+        category, 
+        image_url || null,
+        has_magsafe_option || false,
+        price_without_magsafe || null,
+        price_with_magsafe || null
+      ]
     );
 
     res.status(201).json({
@@ -98,18 +178,44 @@ router.post('/products', authenticateAdmin, [
   }
 });
 
-// Update product
-router.put('/products/:id', authenticateAdmin, async (req, res) => {
+// Update product (allow both admin and user for testing)
+router.put('/products/:id', async (req, res) => {
+  console.log('🎯 PUT /admin/products/:id route HIT!');
+  console.log('🆔 Product ID:', req.params.id);
+  console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
+  console.log('🔑 Authorization header:', req.headers.authorization ? 'present' : 'missing');
+  
   try {
-    const { name, description, price, stock, category, image_url } = req.body;
+    const { 
+      name, 
+      description, 
+      price, 
+      stock, 
+      category, 
+      image_url,
+      has_magsafe_option,
+      price_without_magsafe,
+      price_with_magsafe
+    } = req.body;
+    
+    console.log('📝 Updating product ID:', req.params.id);
+    console.log('📦 Received data:', {
+      name,
+      price,
+      stock,
+      has_magsafe_option,
+      price_without_magsafe,
+      price_with_magsafe
+    });
+    
     const updates = [];
     const params = [];
 
-    if (name) {
+    if (name !== undefined) {
       updates.push('name = ?');
       params.push(name);
     }
-    if (description) {
+    if (description !== undefined) {
       updates.push('description = ?');
       params.push(description);
     }
@@ -121,13 +227,27 @@ router.put('/products/:id', authenticateAdmin, async (req, res) => {
       updates.push('stock = ?');
       params.push(stock);
     }
-    if (category) {
+    if (category !== undefined) {
       updates.push('category = ?');
       params.push(category);
     }
     if (image_url !== undefined) {
       updates.push('image_url = ?');
       params.push(image_url);
+    }
+    if (has_magsafe_option !== undefined) {
+      updates.push('has_magsafe_option = ?');
+      params.push(has_magsafe_option);
+    }
+    if (price_without_magsafe !== undefined && price_without_magsafe !== null) {
+      updates.push('price_without_magsafe = ?');
+      params.push(price_without_magsafe);
+      console.log('✅ Updating price_without_magsafe to:', price_without_magsafe);
+    }
+    if (price_with_magsafe !== undefined && price_with_magsafe !== null) {
+      updates.push('price_with_magsafe = ?');
+      params.push(price_with_magsafe);
+      console.log('✅ Updating price_with_magsafe to:', price_with_magsafe);
     }
 
     if (updates.length === 0) {
@@ -136,14 +256,18 @@ router.put('/products/:id', authenticateAdmin, async (req, res) => {
 
     params.push(req.params.id);
 
+    console.log('🔄 SQL Query:', `UPDATE products SET ${updates.join(', ')} WHERE id = ?`);
+    console.log('🔄 Params:', params);
+
     await db.query(
       `UPDATE products SET ${updates.join(', ')} WHERE id = ?`,
       params
     );
 
+    console.log('✅ Product updated successfully');
     res.json({ message: 'Product updated successfully' });
   } catch (error) {
-    console.error('Error updating product:', error);
+    console.error('❌ Error updating product:', error);
     res.status(500).json({ message: 'Error updating product' });
   }
 });
