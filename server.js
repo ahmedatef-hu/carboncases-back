@@ -11,6 +11,7 @@ const orderRoutes = require('./routes/orders');
 const userRoutes = require('./routes/user');
 const wishlistRoutes = require('./routes/wishlist');
 const adminRoutes = require('./routes/admin');
+const adminEnhancedRoutes = require('./routes/admin-enhanced');
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/admin', adminEnhancedRoutes); // Enhanced admin routes (images, colors, models)
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
