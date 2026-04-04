@@ -36,9 +36,7 @@ router.post('/', authenticateUser, async (req, res) => {
         return res.status(400).json({ message: `Product ${item.productId} not found` });
       }
 
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ message: `Insufficient stock for product ${item.productId}` });
-      }
+      // Stock validation removed - allow orders even if stock is 0
 
       // Determine price based on variant
       let itemPrice = parseFloat(product.price);
@@ -79,23 +77,20 @@ router.post('/', authenticateUser, async (req, res) => {
 
     // Create order
     const [orderResult] = await db.query(
-      'INSERT INTO orders (user_id, total_price, status, shipping_address) VALUES (?, ?, ?, ?) RETURNING id',
+      'INSERT INTO orders (user_id, total_amount, status, shipping_address) VALUES (?, ?, ?, ?) RETURNING id',
       [userId, totalPrice, 'pending', shippingAddress]
     );
 
     const orderId = orderResult[0].id;
 
-    // Insert order items and update stock
+    // Insert order items (stock update removed)
     for (const item of orderItems) {
       await db.query(
-        'INSERT INTO order_items (order_id, product_id, quantity, price, variant) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO order_items (order_id, product_id, quantity, price, magsafe_variant) VALUES (?, ?, ?, ?, ?)',
         [orderId, item.productId, item.quantity, item.price, item.variant]
       );
 
-      await db.query(
-        'UPDATE products SET stock = stock - ? WHERE id = ?',
-        [item.quantity, item.productId]
-      );
+      // Stock update removed - stock won't decrease automatically
     }
 
     res.status(201).json({
@@ -123,6 +118,7 @@ router.get('/my-orders', authenticateUser, async (req, res) => {
       orders.map(async (order) => {
         const [items] = await db.query(
           `SELECT oi.id, oi.product_id as "productId", oi.quantity, oi.price,
+                  oi.magsafe_variant as variant,
                   p.name as "productName", p.image_url as "imageUrl"
            FROM order_items oi
            JOIN products p ON oi.product_id = p.id
@@ -153,7 +149,7 @@ router.get('/:id', authenticateUser, async (req, res) => {
     }
 
     const [items] = await db.query(
-      `SELECT oi.*, p.name as product_name, p.image_url 
+      `SELECT oi.*, p.name as product_name, p.image_url, oi.magsafe_variant as variant
        FROM order_items oi
        JOIN products p ON oi.product_id = p.id
        WHERE oi.order_id = ?`,

@@ -10,6 +10,14 @@ router.get('/', async (req, res) => {
   try {
     const { category, search, minPrice, maxPrice } = req.query;
     
+    // Map URL-friendly category names to database category names
+    const categoryMap = {
+      'phone-covers': 'Phone Covers',
+      'wallets': 'Wallets',
+      'airpods-covers': 'AirPods Covers',
+      'car-accessories': 'Car Accessories'
+    };
+    
     let query = `
       SELECT 
         p.*,
@@ -22,8 +30,10 @@ router.get('/', async (req, res) => {
     const params = [];
 
     if (category) {
+      // Use mapped category name if available, otherwise use as-is
+      const dbCategory = categoryMap[category.toLowerCase()] || category;
       query += ` AND p.category = ?`;
-      params.push(category);
+      params.push(dbCategory);
     }
 
     if (search) {
@@ -115,6 +125,17 @@ router.get('/category/:category', async (req, res) => {
   try {
     const { category } = req.params;
     
+    // Map URL-friendly category names to database category names
+    const categoryMap = {
+      'phone-covers': 'Phone Covers',
+      'wallets': 'Wallets',
+      'airpods-covers': 'AirPods Covers',
+      'car-accessories': 'Car Accessories'
+    };
+    
+    // Use mapped category name if available, otherwise use as-is
+    const dbCategory = categoryMap[category.toLowerCase()] || category;
+    
     const [products] = await db.query(
       `SELECT 
         p.*,
@@ -122,7 +143,7 @@ router.get('/category/:category', async (req, res) => {
       FROM products p
       WHERE p.category = ?
       ORDER BY p.created_at DESC`,
-      [category]
+      [dbCategory]
     );
 
     const productsWithImages = products.map(p => ({
