@@ -83,43 +83,60 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
     const { 
       name, 
       description, 
-      price, 
-      stock, 
       category,
-      has_magsafe_option,
       price_without_magsafe,
       price_with_magsafe,
+      price,
+      stock_quantity,
       images, // Array of image URLs
-      colors, // Array of {name, hex}
+      colors, // Array of color names
       models  // Array of model names
     } = req.body;
 
-    console.log('📦 Creating enhanced product:', { name, images: images?.length, colors: colors?.length, models: models?.length });
+    console.log('📦 Creating enhanced product:', { name, category, images: images?.length, colors: colors?.length, models: models?.length });
 
     // Start transaction
     await db.query('BEGIN');
 
     try {
       // 1. Create product
-      const [productResult] = await db.query(
-        `INSERT INTO products (
-          name, description, price, stock, category,
-          has_magsafe_option, price_without_magsafe, price_with_magsafe,
-          image_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-        [
+      let productQuery, productParams;
+      
+      if (category === 'Phone Covers') {
+        // Phone Covers use MagSafe pricing
+        productQuery = `INSERT INTO products (
+          name, description, category,
+          price_without_magsafe, price_with_magsafe,
+          stock_quantity, image_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`;
+        
+        productParams = [
           name, 
           description, 
-          price, 
-          stock, 
           category,
-          has_magsafe_option || false,
-          price_without_magsafe || null,
-          price_with_magsafe || null,
-          images && images.length > 0 ? images[0] : null // First image as fallback
-        ]
-      );
+          price_without_magsafe,
+          price_with_magsafe,
+          stock_quantity || 0,
+          images && images.length > 0 ? images[0] : null
+        ];
+      } else {
+        // Other categories use single price
+        productQuery = `INSERT INTO products (
+          name, description, category,
+          price, stock_quantity, image_url
+        ) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`;
+        
+        productParams = [
+          name, 
+          description, 
+          category,
+          price,
+          stock_quantity || 0,
+          images && images.length > 0 ? images[0] : null
+        ];
+      }
 
+      const [productResult] = await db.query(productQuery, productParams);
       const productId = productResult[0].id;
       console.log('✅ Product created with ID:', productId);
 
@@ -137,9 +154,10 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       // 3. Insert colors
       if (colors && colors.length > 0) {
         for (let i = 0; i < colors.length; i++) {
+          const colorName = typeof colors[i] === 'string' ? colors[i] : colors[i].name;
           await db.query(
-            'INSERT INTO product_colors (product_id, color_name, color_hex, display_order) VALUES (?, ?, ?, ?)',
-            [productId, colors[i].name, colors[i].hex || null, i + 1]
+            'INSERT INTO product_colors (product_id, color_name, display_order) VALUES (?, ?, ?)',
+            [productId, colorName, i + 1]
           );
         }
         console.log(`✅ ${colors.length} colors added`);
@@ -148,9 +166,10 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       // 4. Insert models
       if (models && models.length > 0) {
         for (let i = 0; i < models.length; i++) {
+          const modelName = typeof models[i] === 'string' ? models[i] : models[i].model_name;
           await db.query(
             'INSERT INTO product_models (product_id, model_name, display_order) VALUES (?, ?, ?)',
-            [productId, models[i], i + 1]
+            [productId, modelName, i + 1]
           );
         }
         console.log(`✅ ${models.length} models added`);
