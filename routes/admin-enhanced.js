@@ -20,7 +20,7 @@ const upload = multer({
       size: file.size
     });
     
-    const allowedTypes = /jpeg|jpg|png|gif|webp/i;
+    const allowedTypes = /jpeg|jpg|png|gif|webp|jfif/i;
     const extname = allowedTypes.test(file.originalname.toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     
