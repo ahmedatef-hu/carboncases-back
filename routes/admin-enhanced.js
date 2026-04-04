@@ -14,14 +14,24 @@ const upload = multer({
     files: 10 // Max 10 files
   },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
+    console.log('📁 File upload attempt:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      size: file.size
+    });
+    
+    const allowedTypes = /jpeg|jpg|png|gif|webp/i;
     const extname = allowedTypes.test(file.originalname.toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
     
+    console.log('🔍 Validation:', { extname, mimetype });
+    
     if (mimetype && extname) {
+      console.log('✅ File accepted');
       return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed!'));
+      console.log('❌ File rejected');
+      cb(new Error(`Only image files are allowed! Got: ${file.mimetype}`));
     }
   }
 });
