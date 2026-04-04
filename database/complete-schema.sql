@@ -57,13 +57,14 @@ CREATE TABLE IF NOT EXISTS products (
   id SERIAL PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  price DECIMAL(10, 2) NOT NULL,
-  stock INTEGER DEFAULT 0,
+  price DECIMAL(10, 2), -- Nullable for Phone Covers
+  stock INTEGER, -- Nullable, use stock_quantity instead
   category VARCHAR(100),
   image_url TEXT,
   has_magsafe_option BOOLEAN DEFAULT FALSE,
   price_without_magsafe DECIMAL(10, 2),
   price_with_magsafe DECIMAL(10, 2),
+  stock_quantity INTEGER DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
