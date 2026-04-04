@@ -16,21 +16,15 @@ const upload = multer({
   fileFilter: function (req, file, cb) {
     console.log('📁 File upload attempt:', {
       originalname: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size
+      mimetype: file.mimetype
     });
     
-    const allowedTypes = /jpeg|jpg|png|gif|webp|jfif/i;
-    const extname = allowedTypes.test(file.originalname.toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    console.log('🔍 Validation:', { extname, mimetype });
-    
-    if (mimetype && extname) {
+    // Accept any image type
+    if (file.mimetype.startsWith('image/')) {
       console.log('✅ File accepted');
       return cb(null, true);
     } else {
-      console.log('❌ File rejected');
+      console.log('❌ File rejected - not an image');
       cb(new Error(`Only image files are allowed! Got: ${file.mimetype}`));
     }
   }
