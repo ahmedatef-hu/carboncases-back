@@ -2,77 +2,143 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 
-// Get all products with optional filters
+/**
+ * Get all products with basic info
+ * For product listing pages
+ */
 router.get('/', async (req, res) => {
   try {
-    const { category, minPrice, maxPrice, sort } = req.query;
+    const { category, search, minPrice, maxPrice } = req.query;
     
-    let query = 'SELECT * FROM products WHERE 1=1';
+    let query = `
+      SELECT 
+        p.*,
+        (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = TRUE LIMIT 1) as primary_image,
+        (SELECT COUNT(*) FROM product_images WHERE product_id = p.id) as image_count
+      FROM products p
+      WHERE 1=1
+    `;
+    
     const params = [];
+    let paramIndex = 1;
 
-    // Apply category filter
     if (category) {
-      query += ' AND category = ?';
+      query += ` AND p.category = $${paramIndex}`;
       params.push(category);
+      paramIndex++;
     }
 
-    // Apply price range filter
+    if (search) {
+      query += ` AND (p.name ILIKE $${paramIndex} OR p.description ILIKE $${paramIndex})`;
+      params.push(`%${search}%`);
+      paramIndex++;
+    }
+
     if (minPrice) {
-      query += ' AND price >= ?';
-      params.push(parseFloat(minPrice));
-    }
-    if (maxPrice) {
-      query += ' AND price <= ?';
-      params.push(parseFloat(maxPrice));
+      query += ` AND p.price >= $${paramIndex}`;
+      params.push(minPrice);
+      paramIndex++;
     }
 
-    // Apply sorting
-    if (sort === 'price_asc') {
-      query += ' ORDER BY price ASC';
-    } else if (sort === 'price_desc') {
-      query += ' ORDER BY price DESC';
-    } else if (sort === 'newest') {
-      query += ' ORDER BY created_at DESC';
-    } else if (sort === 'name_asc') {
-      query += ' ORDER BY name ASC';
-    } else if (sort === 'name_desc') {
-      query += ' ORDER BY name DESC';
-    } else {
-      query += ' ORDER BY id DESC';
+    if (maxPrice) {
+      query += ` AND p.price <= $${paramIndex}`;
+      params.push(maxPrice);
+      paramIndex++;
     }
+
+    query += ' ORDER BY p.created_at DESC';
 
     const [products] = await db.query(query, params);
-    res.json(products);
+    
+    // Use primary_image if available, fallback to image_url
+    const productsWithImages = products.map(p => ({
+      ...p,
+      image_url: p.primary_image || p.image_url
+    }));
+
+    res.json(productsWithImages);
   } catch (error) {
     console.error('Error fetching products:', error);
     res.status(500).json({ message: 'Error fetching products' });
   }
 });
 
-// Get single product by ID
+/**
+ * Get single product with full details
+ * Includes: images, colors, models
+ */
 router.get('/:id', async (req, res) => {
   try {
-    const [products] = await db.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
+    const { id } = req.params;
+
+    // Get product basic info
+    const [products] = await db.query('SELECT * FROM products WHERE id = $1', [id]);
     
     if (products.length === 0) {
       return res.status(404).json({ message: 'Product not found' });
     }
 
-    res.json(products[0]);
+    const product = products[0];
+
+    // Get all images
+    const [images] = await db.query(
+      'SELECT id, image_url, display_order, is_primary FROM product_images WHERE product_id = $1 ORDER BY display_order ASC, id ASC',
+      [id]
+    );
+
+    // Get all colors
+    const [colors] = await db.query(
+      'SELECT id, color_name, color_hex, display_order FROM product_colors WHERE product_id = $1 ORDER BY display_order ASC, id ASC',
+      [id]
+    );
+
+    // Get all models
+    const [models] = await db.query(
+      'SELECT id, model_name, display_order FROM product_models WHERE product_id = $1 ORDER BY display_order ASC, id ASC',
+      [id]
+    );
+
+    // Combine all data
+    const fullProduct = {
+      ...product,
+      images: images.length > 0 ? images : (product.image_url ? [{ image_url: product.image_url, is_primary: true }] : []),
+      colors: colors,
+      models: models
+    };
+
+    res.json(fullProduct);
   } catch (error) {
     console.error('Error fetching product:', error);
-    res.status(500).json({ message: 'Error fetching product' });
+    res.status(500).json({ message: 'Error fetching product details' });
   }
 });
 
-// Get product categories
-router.get('/meta/categories', async (req, res) => {
+/**
+ * Get products by category
+ */
+router.get('/category/:category', async (req, res) => {
   try {
-    const [categories] = await db.query('SELECT DISTINCT category FROM products ORDER BY category');
-    res.json(categories.map(c => c.category));
+    const { category } = req.params;
+    
+    const [products] = await db.query(
+      `SELECT 
+        p.*,
+        (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = TRUE LIMIT 1) as primary_image
+      FROM products p
+      WHERE p.category = $1
+      ORDER BY p.created_at DESC`,
+      [category]
+    );
+
+    const productsWithImages = products.map(p => ({
+      ...p,
+      image_url: p.primary_image || p.image_url
+    }));
+
+    res.json(productsWithImages);
   } catch (error) {
-    console.error('Error fetching categories:', error);
-    res.status(500).json({ message: 'Error fetching categories' });
+    console.error('Error fetching products by category:', error);
+    res.status(500).json({ message: 'Error fetching products' });
   }
 });
 
