@@ -102,7 +102,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
           name, description, price, stock, category,
           has_magsafe_option, price_without_magsafe, price_with_magsafe,
           image_url
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING id`,
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
         [
           name, 
           description, 
@@ -123,7 +123,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       if (images && images.length > 0) {
         for (let i = 0; i < images.length; i++) {
           await db.query(
-            'INSERT INTO product_images (product_id, image_url, display_order, is_primary) VALUES ($1, $2, $3, $4)',
+            'INSERT INTO product_images (product_id, image_url, display_order, is_primary) VALUES (?, ?, ?, ?)',
             [productId, images[i], i + 1, i === 0]
           );
         }
@@ -134,7 +134,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       if (colors && colors.length > 0) {
         for (let i = 0; i < colors.length; i++) {
           await db.query(
-            'INSERT INTO product_colors (product_id, color_name, color_hex, display_order) VALUES ($1, $2, $3, $4)',
+            'INSERT INTO product_colors (product_id, color_name, color_hex, display_order) VALUES (?, ?, ?, ?)',
             [productId, colors[i].name, colors[i].hex || null, i + 1]
           );
         }
@@ -145,7 +145,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       if (models && models.length > 0) {
         for (let i = 0; i < models.length; i++) {
           await db.query(
-            'INSERT INTO product_models (product_id, model_name, display_order) VALUES ($1, $2, $3)',
+            'INSERT INTO product_models (product_id, model_name, display_order) VALUES (?, ?, ?)',
             [productId, models[i], i + 1]
           );
         }
@@ -205,16 +205,16 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
       // 1. Update product basic info
       await db.query(
         `UPDATE products SET 
-          name = $1, 
-          description = $2, 
-          price = $3, 
-          stock = $4, 
-          category = $5,
-          has_magsafe_option = $6,
-          price_without_magsafe = $7,
-          price_with_magsafe = $8,
-          image_url = $9
-        WHERE id = $10`,
+          name = ?, 
+          description = ?, 
+          price = ?, 
+          stock = ?, 
+          category = ?,
+          has_magsafe_option = ?,
+          price_without_magsafe = ?,
+          price_with_magsafe = ?,
+          image_url = ?
+        WHERE id = ?`,
         [
           name, 
           description, 
@@ -233,12 +233,12 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
       if (images !== undefined) {
         // Get old images to delete from Supabase
         const [oldImages] = await db.query(
-          'SELECT image_url FROM product_images WHERE product_id = $1',
+          'SELECT image_url FROM product_images WHERE product_id = ?',
           [id]
         );
         
         // Delete old images from database
-        await db.query('DELETE FROM product_images WHERE product_id = $1', [id]);
+        await db.query('DELETE FROM product_images WHERE product_id = ?', [id]);
         
         // Delete old images from Supabase (async, don't wait)
         oldImages.forEach(img => {
@@ -251,7 +251,7 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
         if (images && images.length > 0) {
           for (let i = 0; i < images.length; i++) {
             await db.query(
-              'INSERT INTO product_images (product_id, image_url, display_order, is_primary) VALUES ($1, $2, $3, $4)',
+              'INSERT INTO product_images (product_id, image_url, display_order, is_primary) VALUES (?, ?, ?, ?)',
               [id, images[i], i + 1, i === 0]
             );
           }
@@ -261,12 +261,12 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
 
       // 3. Update colors
       if (colors !== undefined) {
-        await db.query('DELETE FROM product_colors WHERE product_id = $1', [id]);
+        await db.query('DELETE FROM product_colors WHERE product_id = ?', [id]);
         
         if (colors && colors.length > 0) {
           for (let i = 0; i < colors.length; i++) {
             await db.query(
-              'INSERT INTO product_colors (product_id, color_name, color_hex, display_order) VALUES ($1, $2, $3, $4)',
+              'INSERT INTO product_colors (product_id, color_name, color_hex, display_order) VALUES (?, ?, ?, ?)',
               [id, colors[i].name, colors[i].hex || null, i + 1]
             );
           }
@@ -276,12 +276,12 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
 
       // 4. Update models
       if (models !== undefined) {
-        await db.query('DELETE FROM product_models WHERE product_id = $1', [id]);
+        await db.query('DELETE FROM product_models WHERE product_id = ?', [id]);
         
         if (models && models.length > 0) {
           for (let i = 0; i < models.length; i++) {
             await db.query(
-              'INSERT INTO product_models (product_id, model_name, display_order) VALUES ($1, $2, $3)',
+              'INSERT INTO product_models (product_id, model_name, display_order) VALUES (?, ?, ?)',
               [id, models[i], i + 1]
             );
           }
@@ -318,7 +318,7 @@ router.get('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
 
     // Get product
-    const [products] = await db.query('SELECT * FROM products WHERE id = $1', [id]);
+    const [products] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
     
     if (products.length === 0) {
       return res.status(404).json({ message: 'Product not found' });
@@ -328,19 +328,19 @@ router.get('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
 
     // Get images
     const [images] = await db.query(
-      'SELECT id, image_url, display_order, is_primary FROM product_images WHERE product_id = $1 ORDER BY display_order ASC',
+      'SELECT id, image_url, display_order, is_primary FROM product_images WHERE product_id = ? ORDER BY display_order ASC',
       [id]
     );
 
     // Get colors
     const [colors] = await db.query(
-      'SELECT id, color_name, color_hex FROM product_colors WHERE product_id = $1 ORDER BY display_order ASC',
+      'SELECT id, color_name, color_hex FROM product_colors WHERE product_id = ? ORDER BY display_order ASC',
       [id]
     );
 
     // Get models
     const [models] = await db.query(
-      'SELECT id, model_name FROM product_models WHERE product_id = $1 ORDER BY display_order ASC',
+      'SELECT id, model_name FROM product_models WHERE product_id = ? ORDER BY display_order ASC',
       [id]
     );
 
@@ -370,7 +370,7 @@ router.delete('/products/:productId/images/:imageId', authenticateAdmin, async (
 
     // Get image URL
     const [images] = await db.query(
-      'SELECT image_url FROM product_images WHERE id = $1 AND product_id = $2',
+      'SELECT image_url FROM product_images WHERE id = ? AND product_id = ?',
       [imageId, productId]
     );
 
@@ -379,7 +379,7 @@ router.delete('/products/:productId/images/:imageId', authenticateAdmin, async (
     }
 
     // Delete from database
-    await db.query('DELETE FROM product_images WHERE id = $1', [imageId]);
+    await db.query('DELETE FROM product_images WHERE id = ?', [imageId]);
 
     // Delete from Supabase
     if (images[0].image_url && images[0].image_url.includes('supabase.co')) {

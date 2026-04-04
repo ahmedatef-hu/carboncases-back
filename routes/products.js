@@ -20,30 +20,25 @@ router.get('/', async (req, res) => {
     `;
     
     const params = [];
-    let paramIndex = 1;
 
     if (category) {
-      query += ` AND p.category = $${paramIndex}`;
+      query += ` AND p.category = ?`;
       params.push(category);
-      paramIndex++;
     }
 
     if (search) {
-      query += ` AND (p.name ILIKE $${paramIndex} OR p.description ILIKE $${paramIndex})`;
-      params.push(`%${search}%`);
-      paramIndex++;
+      query += ` AND (p.name ILIKE ? OR p.description ILIKE ?)`;
+      params.push(`%${search}%`, `%${search}%`);
     }
 
     if (minPrice) {
-      query += ` AND p.price >= $${paramIndex}`;
+      query += ` AND p.price >= ?`;
       params.push(minPrice);
-      paramIndex++;
     }
 
     if (maxPrice) {
-      query += ` AND p.price <= $${paramIndex}`;
+      query += ` AND p.price <= ?`;
       params.push(maxPrice);
-      paramIndex++;
     }
 
     query += ' ORDER BY p.created_at DESC';
@@ -72,7 +67,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
     // Get product basic info
-    const [products] = await db.query('SELECT * FROM products WHERE id = $1', [id]);
+    const [products] = await db.query('SELECT * FROM products WHERE id = ?', [id]);
     
     if (products.length === 0) {
       return res.status(404).json({ message: 'Product not found' });
@@ -82,19 +77,19 @@ router.get('/:id', async (req, res) => {
 
     // Get all images
     const [images] = await db.query(
-      'SELECT id, image_url, display_order, is_primary FROM product_images WHERE product_id = $1 ORDER BY display_order ASC, id ASC',
+      'SELECT id, image_url, display_order, is_primary FROM product_images WHERE product_id = ? ORDER BY display_order ASC, id ASC',
       [id]
     );
 
     // Get all colors
     const [colors] = await db.query(
-      'SELECT id, color_name, color_hex, display_order FROM product_colors WHERE product_id = $1 ORDER BY display_order ASC, id ASC',
+      'SELECT id, color_name, color_hex, display_order FROM product_colors WHERE product_id = ? ORDER BY display_order ASC, id ASC',
       [id]
     );
 
     // Get all models
     const [models] = await db.query(
-      'SELECT id, model_name, display_order FROM product_models WHERE product_id = $1 ORDER BY display_order ASC, id ASC',
+      'SELECT id, model_name, display_order FROM product_models WHERE product_id = ? ORDER BY display_order ASC, id ASC',
       [id]
     );
 
@@ -125,7 +120,7 @@ router.get('/category/:category', async (req, res) => {
         p.*,
         (SELECT image_url FROM product_images WHERE product_id = p.id AND is_primary = TRUE LIMIT 1) as primary_image
       FROM products p
-      WHERE p.category = $1
+      WHERE p.category = ?
       ORDER BY p.created_at DESC`,
       [category]
     );
