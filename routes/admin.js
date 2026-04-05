@@ -100,7 +100,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       totalUsers: usersCount[0].total_users || 0,
       topProducts,
       
-      recentOrders
+      recentOrders: recentOrders.map(o => ({ ...o, user_phone: (o.shipping_address && o.shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i)) ? o.shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i)[1].trim() : null }))
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
@@ -288,7 +288,19 @@ router.get('/orders', authenticateAdmin, async (req, res) => {
        ORDER BY o.created_at DESC`
     );
 
-    res.json(orders);
+    // Extract phone from shipping_address for each order
+    const ordersWithPhone = orders.map(order => {
+      let phoneFromAddress = null;
+      if (order.shipping_address) {
+        const phoneMatch = order.shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i);
+        if (phoneMatch) {
+          phoneFromAddress = phoneMatch[1].trim();
+        }
+      }
+      return { ...order, user_phone: phoneFromAddress || order.user_phone };
+    });
+
+    res.json(ordersWithPhone);
   } catch (error) {
     console.error('Error fetching orders:', error);
     res.status(500).json({ message: 'Error fetching orders' });
@@ -322,7 +334,13 @@ router.get('/orders/:id', authenticateAdmin, async (req, res) => {
       [req.params.id]
     );
 
-    res.json({ ...orders[0], items });
+    // Extract phone from shipping_address
+    let phoneFromAddress = null;
+    if (orders[0].shipping_address) {
+      const phoneMatch = orders[0].shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i);
+      if (phoneMatch) { phoneFromAddress = phoneMatch[1].trim(); }
+    }
+    res.json({ ...orders[0], user_phone: phoneFromAddress || orders[0].user_phone, items });
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({ message: 'Error fetching order' });
@@ -371,4 +389,7 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
 });
 
 module.exports = router;
+
+
+
 
