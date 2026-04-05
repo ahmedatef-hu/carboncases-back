@@ -67,7 +67,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
   try {
     // Total sales
     const [salesResult] = await db.query(
-      "SELECT SUM(total_price) as total_sales, COUNT(*) as total_orders FROM orders WHERE status != 'canceled'"
+      "SELECT COALESCE(SUM(total_amount), 0) as total_sales, COUNT(*) as total_orders FROM orders WHERE status != 'canceled'"
     );
 
     // Top selling products
