@@ -31,16 +31,20 @@ router.get('/profile', authenticateUser, async (req, res) => {
 // Update user profile
 router.put('/profile', authenticateUser, [
   body('name').optional().trim().isLength({ min: 2 }),
-  body('phone').optional().isMobilePhone(),
+  body('phone').optional().trim(),
   body('address').optional().trim()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
+      console.log('❌ Validation errors:', errors.array());
       return res.status(400).json({ errors: errors.array() });
     }
 
     const { name, phone, address } = req.body;
+    console.log('📝 Updating profile for user:', req.userId);
+    console.log('📦 Data:', { name, phone, address });
+    
     const updates = [];
     const params = [];
 
@@ -68,6 +72,7 @@ router.put('/profile', authenticateUser, [
       params
     );
 
+    console.log('✅ Profile updated successfully');
     res.json({ message: 'Profile updated successfully' });
   } catch (error) {
     console.error('Error updating profile:', error);
