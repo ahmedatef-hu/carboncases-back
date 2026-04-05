@@ -69,7 +69,9 @@ router.post('/', authenticateUser, async (req, res) => {
         productId: product.id,
         quantity: item.quantity,
         price: itemPrice,
-        variant: item.variant || null
+        variant: item.variant || null,
+        selectedColor: item.selectedColor || null,
+        selectedModel: item.selectedModel || null
       });
     }
 
@@ -86,8 +88,8 @@ router.post('/', authenticateUser, async (req, res) => {
     // Insert order items (stock update removed)
     for (const item of orderItems) {
       await db.query(
-        'INSERT INTO order_items (order_id, product_id, quantity, price, magsafe_variant) VALUES (?, ?, ?, ?, ?)',
-        [orderId, item.productId, item.quantity, item.price, item.variant]
+        'INSERT INTO order_items (order_id, product_id, quantity, price, magsafe_variant, selected_color, selected_model) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [orderId, item.productId, item.quantity, item.price, item.variant, item.selectedColor, item.selectedModel]
       );
 
       // Stock update removed - stock won't decrease automatically
@@ -149,7 +151,10 @@ router.get('/:id', authenticateUser, async (req, res) => {
     }
 
     const [items] = await db.query(
-      `SELECT oi.*, p.name as product_name, p.image_url, oi.magsafe_variant as variant
+      `SELECT oi.*, p.name as product_name, p.image_url, 
+              oi.magsafe_variant as variant,
+              oi.selected_color,
+              oi.selected_model
        FROM order_items oi
        JOIN products p ON oi.product_id = p.id
        WHERE oi.order_id = ?`,
