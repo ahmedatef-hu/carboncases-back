@@ -11,7 +11,7 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 5 * 1024 * 1024, // 5MB max per file
-    files: 10 // Max 10 files
+    files: 15 // Max 15 files
   },
   fileFilter: function (req, file, cb) {
     console.log('📁 File upload attempt:', {
@@ -34,7 +34,7 @@ const upload = multer({
  * Upload multiple images
  * POST /api/admin/upload-images
  */
-router.post('/upload-images', authenticateAdmin, upload.array('images', 10), async (req, res) => {
+router.post('/upload-images', authenticateAdmin, upload.array('images', 15), async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ message: 'No files uploaded' });
@@ -93,7 +93,16 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       models  // Array of model names
     } = req.body;
 
-    console.log('📦 Creating enhanced product:', { name, category, images: images?.length, colors: colors?.length, models: models?.length });
+    console.log('📦 Creating enhanced product:', { 
+      name, 
+      category, 
+      stock_quantity,
+      stock_quantity_type: typeof stock_quantity,
+      images: images?.length, 
+      colors: colors?.length, 
+      models: models?.length 
+    });
+    console.log('📊 Full request body:', JSON.stringify(req.body, null, 2));
 
     // Start transaction
     await db.query('BEGIN');
@@ -107,8 +116,8 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
         productQuery = `INSERT INTO products (
           name, description, category,
           price_without_magsafe, price_with_magsafe,
-          stock_quantity, image_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`;
+          has_magsafe_option, stock_quantity, image_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`;
         
         productParams = [
           name, 
@@ -116,9 +125,12 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
           category,
           price_without_magsafe,
           price_with_magsafe,
+          true, // has_magsafe_option = true for Phone Covers
           stock_quantity || 0,
           images && images.length > 0 ? images[0] : null
         ];
+        
+        console.log('📝 Phone Cover params:', productParams);
       } else {
         // Other categories use single price
         productQuery = `INSERT INTO products (
@@ -134,6 +146,8 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
           stock_quantity || 0,
           images && images.length > 0 ? images[0] : null
         ];
+        
+        console.log('📝 Other category params:', productParams);
       }
 
       const [productResult] = await db.query(productQuery, productParams);
@@ -155,9 +169,10 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       if (colors && colors.length > 0) {
         for (let i = 0; i < colors.length; i++) {
           const colorName = typeof colors[i] === 'string' ? colors[i] : colors[i].name;
+          const colorHex = typeof colors[i] === 'object' ? colors[i].hex : null;
           await db.query(
-            'INSERT INTO product_colors (product_id, color_name, display_order) VALUES (?, ?, ?)',
-            [productId, colorName, i + 1]
+            'INSERT INTO product_colors (product_id, color_name, color_hex, display_order) VALUES (?, ?, ?, ?)',
+            [productId, colorName, colorHex, i + 1]
           );
         }
         console.log(`✅ ${colors.length} colors added`);
@@ -209,7 +224,7 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
       name, 
       description, 
       price, 
-      stock, 
+      stock_quantity, // Changed from stock
       category,
       has_magsafe_option,
       price_without_magsafe,
@@ -220,6 +235,12 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
     } = req.body;
 
     console.log('📝 Updating enhanced product:', id);
+    console.log('📊 Update data:', { 
+      name, 
+      category, 
+      stock_quantity,
+      stock_quantity_type: typeof stock_quantity 
+    });
 
     // Start transaction
     await db.query('BEGIN');
@@ -231,7 +252,7 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
           name = ?, 
           description = ?, 
           price = ?, 
-          stock = ?, 
+          stock_quantity = ?, 
           category = ?,
           has_magsafe_option = ?,
           price_without_magsafe = ?,
@@ -242,7 +263,7 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
           name, 
           description, 
           price, 
-          stock, 
+          stock_quantity || 0, 
           category,
           has_magsafe_option || false,
           price_without_magsafe || null,
@@ -251,6 +272,8 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
           id
         ]
       );
+      
+      console.log('✅ Product basic info updated');
 
       // 2. Update images (delete old, insert new)
       if (images !== undefined) {
@@ -260,12 +283,18 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
           [id]
         );
         
+        // Find images that are being removed (not in new images array)
+        const imagesToDelete = oldImages.filter(
+          oldImg => !images.includes(oldImg.image_url)
+        );
+        
         // Delete old images from database
         await db.query('DELETE FROM product_images WHERE product_id = ?', [id]);
         
-        // Delete old images from Supabase (async, don't wait)
-        oldImages.forEach(img => {
+        // Delete only removed images from Supabase (async, don't wait)
+        imagesToDelete.forEach(img => {
           if (img.image_url && img.image_url.includes('supabase.co')) {
+            console.log(`🗑️  Deleting removed image: ${img.image_url.substring(img.image_url.lastIndexOf('/') + 1)}`);
             deleteImage(img.image_url).catch(err => console.error('Error deleting image:', err));
           }
         });
@@ -279,7 +308,7 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
             );
           }
         }
-        console.log(`✅ Images updated`);
+        console.log(`✅ Images updated (${images.length} images, ${imagesToDelete.length} deleted)`);
       }
 
       // 3. Update colors
