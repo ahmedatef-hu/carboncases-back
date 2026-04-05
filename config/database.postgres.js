@@ -22,7 +22,7 @@ pool.query('SELECT NOW()', (err, res) => {
 const query = async (text, params) => {
   // Convert MySQL ? placeholders to PostgreSQL $1, $2, etc.
   let paramIndex = 1;
-  const convertedText = text.replace(/\?/g, () => `$${paramIndex++}`);
+  const convertedText = text.replace(/\?/g, () => '$' + paramIndex++);
   
   const result = await pool.query(convertedText, params);
   // Return in MySQL2 format [rows, fields]
