@@ -82,18 +82,13 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
        LIMIT 5`
     );
 
-    // Low stock alerts
-    const [lowStock] = await db.query(
-      'SELECT id, name, stock FROM products WHERE stock < 50 ORDER BY stock ASC'
-    );
-
     // Recent orders
     const [recentOrders] = await db.query(
       `SELECT o.*, u.name as user_name, u.email as user_email
        FROM orders o
        JOIN users u ON o.user_id = u.id
        ORDER BY o.created_at DESC
-       LIMIT 10`
+       LIMIT 3`
     );
 
     // Total users
@@ -104,7 +99,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       totalOrders: salesResult[0].total_orders || 0,
       totalUsers: usersCount[0].total_users || 0,
       topProducts,
-      lowStock,
+      
       recentOrders
     });
   } catch (error) {
