@@ -105,7 +105,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
     console.log('📊 Full request body:', JSON.stringify(req.body, null, 2));
 
     // Start transaction
-    await db.query('BEGIN');
+    await db.query('START TRANSACTION');
 
     try {
       // 1. Create product
@@ -244,7 +244,7 @@ router.put('/products/enhanced/:id', authenticateAdmin, async (req, res) => {
     });
 
     // Start transaction
-    await db.query('BEGIN');
+    await db.query('START TRANSACTION');
 
     try {
       // 1. Update product basic info
