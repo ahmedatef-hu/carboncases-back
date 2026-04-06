@@ -117,7 +117,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
           name, description, category,
           price_without_magsafe, price_with_magsafe,
           has_magsafe_option, stock_quantity, image_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`;
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
         
         productParams = [
           name, 
@@ -136,7 +136,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
         productQuery = `INSERT INTO products (
           name, description, category,
           price, has_magsafe_option, stock_quantity, image_url
-        ) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`;
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`;
         
         productParams = [
           name, 
@@ -152,7 +152,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       }
 
       const [productResult] = await db.query(productQuery, productParams);
-      const productId = productResult[0].id;
+      const productId = productResult.insertId;
       console.log('✅ Product created with ID:', productId);
 
       // 2. Insert images
