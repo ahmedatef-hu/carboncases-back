@@ -84,6 +84,7 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       name, 
       description, 
       category,
+      has_magsafe_option,
       price_without_magsafe,
       price_with_magsafe,
       price,
