@@ -13,6 +13,8 @@
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "SUPABASE_URL": "https://pbnbbtxugtoedovgvqst.supabase.co",
+    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBibmJidHh1Z3RvZWRvdmd2cXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNTA1MTIsImV4cCI6MjA5MDYyNjUxMn0.7Q3oomg5ZFaqnOrJSkqfXanq6iBZZfmWtXcThazdQz4"
   }
 }
