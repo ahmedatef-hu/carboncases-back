@@ -111,8 +111,8 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
       // 1. Create product
       let productQuery, productParams;
       
-      if (category === 'Phone Covers') {
-        // Phone Covers use MagSafe pricing
+      if (category === 'Phone Covers' && has_magsafe_option) {
+        // Phone Covers WITH MagSafe use MagSafe pricing
         productQuery = `INSERT INTO products (
           name, description, category,
           price_without_magsafe, price_with_magsafe,
@@ -125,29 +125,30 @@ router.post('/products/enhanced', authenticateAdmin, async (req, res) => {
           category,
           price_without_magsafe,
           price_with_magsafe,
-          true, // has_magsafe_option = true for Phone Covers
+          true, // has_magsafe_option = true
           stock_quantity || 0,
           images && images.length > 0 ? images[0] : null
         ];
         
-        console.log('📝 Phone Cover params:', productParams);
+        console.log('📝 Phone Cover WITH MagSafe params:', productParams);
       } else {
-        // Other categories use single price
+        // Other categories OR Phone Covers WITHOUT MagSafe use single price
         productQuery = `INSERT INTO products (
           name, description, category,
-          price, stock_quantity, image_url
-        ) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`;
+          price, has_magsafe_option, stock_quantity, image_url
+        ) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`;
         
         productParams = [
           name, 
           description, 
           category,
           price,
+          false, // has_magsafe_option = false
           stock_quantity || 0,
           images && images.length > 0 ? images[0] : null
         ];
         
-        console.log('📝 Other category params:', productParams);
+        console.log('📝 Product WITHOUT MagSafe params:', productParams);
       }
 
       const [productResult] = await db.query(productQuery, productParams);
