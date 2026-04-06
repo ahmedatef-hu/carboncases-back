@@ -25,7 +25,7 @@ async function uploadImage(fileBuffer, fileName, contentType) {
     throw new Error('Supabase client not initialized');
   }
 
-  const bucketName = 'carbon-cases-images';
+  const bucketName = 'Carbon casses img';
   
   // Upload file to Supabase Storage
   const { data, error } = await supabase.storage
@@ -60,7 +60,7 @@ async function deleteImage(imageUrl) {
   try {
     // Extract file name from URL
     const fileName = imageUrl.split('/').pop();
-    const bucketName = 'carbon-cases-images';
+    const bucketName = 'Carbon casses img';
 
     const { error } = await supabase.storage
       .from(bucketName)
