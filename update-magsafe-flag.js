@@ -1,33 +1,33 @@
-require('dotenv').config();
 const db = require('./config/database');
 
 async function updateMagSafeFlag() {
   try {
-    console.log('🔄 Updating has_magsafe_option for Phone Covers...');
+    console.log('🔧 Updating MagSafe flags for existing products...');
 
-    // Update all Phone Covers to have has_magsafe_option = true
-    const result = await db.query(`
-      UPDATE products 
-      SET has_magsafe_option = true 
-      WHERE category = 'Phone Covers' 
-      AND (has_magsafe_option IS NULL OR has_magsafe_option = false)
-    `);
+    // Get all products
+    const [products] = await db.query('SELECT id, name, price_without_magsafe, price_with_magsafe, has_magsafe_option FROM products');
 
-    console.log('✅ Updated products:', result);
-    console.log('✅ All Phone Covers now have has_magsafe_option = true');
+    console.log(`📦 Found ${products.length} products`);
 
-    // Show updated products
-    const [products] = await db.query(`
-      SELECT id, name, category, has_magsafe_option, price_without_magsafe, price_with_magsafe
-      FROM products 
-      WHERE category = 'Phone Covers'
-    `);
+    for (const product of products) {
+      // If product has both MagSafe prices, set has_magsafe_option to true
+      if (product.price_without_magsafe && product.price_with_magsafe) {
+        await db.query(
+          'UPDATE products SET has_magsafe_option = ? WHERE id = ?',
+          [true, product.id]
+        );
+        console.log(`✅ ${product.name}: Set has_magsafe_option = true`);
+      } else {
+        // Otherwise set to false
+        await db.query(
+          'UPDATE products SET has_magsafe_option = ? WHERE id = ?',
+          [false, product.id]
+        );
+        console.log(`✅ ${product.name}: Set has_magsafe_option = false`);
+      }
+    }
 
-    console.log('\n📦 Phone Cover Products:');
-    products.forEach(p => {
-      console.log(`  - ${p.name}: has_magsafe_option=${p.has_magsafe_option}, without=${p.price_without_magsafe}, with=${p.price_with_magsafe}`);
-    });
-
+    console.log('\n✅ All products updated successfully!');
     process.exit(0);
   } catch (error) {
     console.error('❌ Error:', error);
