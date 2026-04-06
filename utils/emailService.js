@@ -18,9 +18,9 @@ const sendVerificationEmail = async (email, code) => {
 
     // Email template
     const mailOptions = {
-      from: `Carbon Cases <${process.env.EMAIL_USER}>`,
+      from: `Carbon Case <${process.env.EMAIL_USER}>`,
       to: email,
-      subject: 'Verify Your Email - Carbon Cases',
+      subject: 'Verify Your Email - Carbon Case',
       html: `
         <!DOCTYPE html>
         <html>
@@ -40,12 +40,12 @@ const sendVerificationEmail = async (email, code) => {
         <body>
           <div class="container">
             <div class="header">
-              <div class="logo">CARBON CASES</div>
-              <div class="title">Welcome to Carbon Cases</div>
+              <div class="logo">CARBON CASE</div>
+              <div class="title">Welcome to Carbon Case</div>
             </div>
             
             <div class="message">
-              <p>Thank you for joining Carbon Cases! To complete your registration, please use the verification code below:</p>
+              <p>Thank you for joining Carbon Case! To complete your registration, please use the verification code below:</p>
             </div>
             
             <div class="code-box">
@@ -58,7 +58,7 @@ const sendVerificationEmail = async (email, code) => {
             </div>
             
             <div class="footer">
-              <p>&copy; 2026 Carbon Cases. All rights reserved.</p>
+              <p>&copy; 2026 Carbon Case. All rights reserved.</p>
               <p>Premium Carbon Fiber Products</p>
             </div>
           </div>

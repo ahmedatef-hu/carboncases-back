@@ -36,7 +36,7 @@ app.use('/api/admin', adminEnhancedRoutes); // Enhanced admin routes (images, co
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Carbon Cases API is running' });
+  res.json({ status: 'ok', message: 'Carbon Case API is running' });
 });
 
 // Error handling middleware
@@ -48,5 +48,5 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
-  console.log(`Carbon Cases server running on port ${PORT}`);
+  console.log(`Carbon Case server running on port ${PORT}`);
 });

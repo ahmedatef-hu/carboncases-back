@@ -91,6 +91,21 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
        LIMIT 3`
     );
 
+    // Extract phone from shipping_address for recent orders
+    const recentOrdersWithPhone = recentOrders.map(order => {
+      let phoneFromAddress = null;
+    res.json({
+      totalSales: salesResult[0].total_sales || 0,
+      totalOrders: salesResult[0].total_orders || 0,
+      totalUsers: usersCount[0].total_users || 0,
+      topProducts,
+      
+      recentOrders: recentOrdersWithPhone
+    }); ...order,
+        user_phone: phoneFromAddress
+      };
+    });
+
     // Total users
     const [usersCount] = await db.query('SELECT COUNT(*) as total_users FROM users');
 
@@ -100,7 +115,7 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
       totalUsers: usersCount[0].total_users || 0,
       topProducts,
       
-      recentOrders: recentOrders.map(o => ({ ...o, user_phone: (o.shipping_address && o.shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i)) ? o.shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i)[1].trim() : null }))
+      recentOrders
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
@@ -292,12 +307,17 @@ router.get('/orders', authenticateAdmin, async (req, res) => {
     const ordersWithPhone = orders.map(order => {
       let phoneFromAddress = null;
       if (order.shipping_address) {
-        const phoneMatch = order.shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i);
+        // Extract phone from format: "Name, Address, City, Gov, Phone: 01234567890"
+        const phoneMatch = order.shipping_address.match(/Phone:\s*(\+?\d[\d\s-]+)/i);
         if (phoneMatch) {
           phoneFromAddress = phoneMatch[1].trim();
         }
       }
-      return { ...order, user_phone: phoneFromAddress || order.user_phone };
+      
+      return {
+        ...order,
+        user_phone: phoneFromAddress || order.user_phone // Use shipping phone first, fallback to user phone
+      };
     });
 
     res.json(ordersWithPhone);
@@ -306,23 +326,6 @@ router.get('/orders', authenticateAdmin, async (req, res) => {
     res.status(500).json({ message: 'Error fetching orders' });
   }
 });
-
-
-// Get single order details (admin)
-router.get('/orders/:id', authenticateAdmin, async (req, res) => {
-  try {
-    const [orders] = await db.query(
-      `SELECT o.*, u.name as user_name, u.email as user_email, u.phone as user_phone
-       FROM orders o
-       JOIN users u ON o.user_id = u.id
-       WHERE o.id = ?`,
-      [req.params.id]
-    );
-
-    if (orders.length === 0) {
-      return res.status(404).json({ message: 'Order not found' });
-    }
-
     const [items] = await db.query(
       `SELECT oi.*, p.name as product_name, p.image_url, 
               oi.magsafe_variant as variant,
@@ -337,10 +340,35 @@ router.get('/orders/:id', authenticateAdmin, async (req, res) => {
     // Extract phone from shipping_address
     let phoneFromAddress = null;
     if (orders[0].shipping_address) {
-      const phoneMatch = orders[0].shipping_address.match(/Phone:\\s*(\\+?\\d[\\d\\s-]+)/i);
-      if (phoneMatch) { phoneFromAddress = phoneMatch[1].trim(); }
+      const phoneMatch = orders[0].shipping_address.match(/Phone:\s*(\+?\d[\d\s-]+)/i);
+      if (phoneMatch) {
+        phoneFromAddress = phoneMatch[1].trim();
+      }
     }
-    res.json({ ...orders[0], user_phone: phoneFromAddress || orders[0].user_phone, items });
+
+    const orderWithPhone = {
+      ...orders[0],
+      user_phone: phoneFromAddress || orders[0].user_phone,
+      items
+    };
+
+    res.json(orderWithPhone);
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ message: 'Error fetching order' });
+  }
+}); const [items] = await db.query(
+      `SELECT oi.*, p.name as product_name, p.image_url, 
+              oi.magsafe_variant as variant,
+              oi.selected_color,
+              oi.selected_model
+       FROM order_items oi
+       JOIN products p ON oi.product_id = p.id
+       WHERE oi.order_id = ?`,
+      [req.params.id]
+    );
+
+    res.json({ ...orders[0], items });
   } catch (error) {
     console.error('Error fetching order:', error);
     res.status(500).json({ message: 'Error fetching order' });
@@ -389,7 +417,3 @@ router.delete('/users/:id', authenticateAdmin, async (req, res) => {
 });
 
 module.exports = router;
-
-
-
-
