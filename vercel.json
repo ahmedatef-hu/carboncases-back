@@ -11,13 +11,5 @@
       "src": "/(.*)",
       "dest": "server.js"
     }
-  ],
-  "env": {
-    "NODE_ENV": "production",
-    "DATABASE_URL": "postgresql://postgres.pbnbbtxugtoedovgvqst:H%3FGXqeFx8SMRwQ2@aws-1-eu-central-1.pooler.supabase.com:5432/postgres",
-    "JWT_SECRET": "carbon_cases_secret_key_2024_production_change_this",
-    "FRONTEND_URL": "https://carboncases-front.vercel.app",
-    "SUPABASE_URL": "https://pbnbbtxugtoedovgvqst.supabase.co",
-    "SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBibmJidHh1Z3RvZWRvdmd2cXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwNTA1MTIsImV4cCI6MjA5MDYyNjUxMn0.7Q3oomg5ZFaqnOrJSkqfXanq6iBZZfmWtXcThazdQz4"
-  }
+  ]
 }
