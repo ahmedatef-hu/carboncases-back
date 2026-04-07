@@ -91,31 +91,30 @@ router.get('/stats', authenticateAdmin, async (req, res) => {
        LIMIT 3`
     );
 
-    // Extract phone from shipping_address for recent orders
-    const recentOrdersWithPhone = recentOrders.map(order => {
-      let phoneFromAddress = null;
-    res.json({
-      totalSales: salesResult[0].total_sales || 0,
-      totalOrders: salesResult[0].total_orders || 0,
-      totalUsers: usersCount[0].total_users || 0,
-      topProducts,
-      
-      recentOrders: recentOrdersWithPhone
-    }); ...order,
-        user_phone: phoneFromAddress
-      };
-    });
-
     // Total users
     const [usersCount] = await db.query('SELECT COUNT(*) as total_users FROM users');
 
+    // Extract phone from shipping_address for recent orders
+    const recentOrdersWithPhone = recentOrders.map(order => {
+      let phoneFromAddress = null;
+      if (order.shipping_address) {
+        const phoneMatch = order.shipping_address.match(/Phone:\s*(\+?\d[\d\s-]+)/i);
+        if (phoneMatch) {
+          phoneFromAddress = phoneMatch[1].trim();
+        }
+      }
+      return {
+        ...order,
+        user_phone: phoneFromAddress || order.user_phone
+      };
+    });
+
     res.json({
       totalSales: salesResult[0].total_sales || 0,
       totalOrders: salesResult[0].total_orders || 0,
       totalUsers: usersCount[0].total_users || 0,
       topProducts,
-      
-      recentOrders
+      recentOrders: recentOrdersWithPhone
     });
   } catch (error) {
     console.error('Error fetching stats:', error);
