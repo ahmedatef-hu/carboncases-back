@@ -4,6 +4,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   'https://carboncases-front.vercel.app',
   'https://carboncases-front-git-main-ahmedatef-hus-projects.vercel.app', // Git branch preview
+  'https://www.carboncase-eg.com',
+  'https://carboncase-eg.com',
   process.env.FRONTEND_URL
 ].filter(Boolean);
 
@@ -12,8 +14,10 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
     
-    // Check if origin is in allowed list or is a Vercel preview URL
-    if (allowedOrigins.indexOf(origin) !== -1 || origin.includes('carboncases-front') && origin.includes('vercel.app')) {
+    // Check if origin is in allowed list or is a Vercel preview URL or custom domain
+    if (allowedOrigins.indexOf(origin) !== -1 || 
+        (origin.includes('carboncases-front') && origin.includes('vercel.app')) ||
+        origin.includes('carboncase-eg.com')) {
       callback(null, true);
     } else {
       console.log('CORS blocked origin:', origin);
