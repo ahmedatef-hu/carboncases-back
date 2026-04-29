@@ -1,20 +1,14 @@
 const { Pool } = require('pg');
 
-// Create PostgreSQL connection pool
+// Create PostgreSQL connection pool with serverless-friendly settings
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false // Required for Supabase
-  }
-});
-
-// Test connection
-pool.query('SELECT NOW()', (err, res) => {
-  if (err) {
-    console.error('❌ PostgreSQL connection error:', err);
-  } else {
-    console.log('✅ Connected to Supabase PostgreSQL');
-  }
+  },
+  max: 1, // Limit connections for serverless
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 });
 
 // Wrapper to make it compatible with MySQL2 syntax
@@ -23,7 +17,7 @@ const query = async (text, params) => {
   try {
     // Convert MySQL ? placeholders to PostgreSQL $1, $2, etc.
     let paramIndex = 1;
-    const convertedText = text.replace(/\?/g, () => '$' + paramIndex++);
+    const convertedText = text.replace(/\?/g, () => `$${paramIndex++}`);
     
     const result = await pool.query(convertedText, params);
     
