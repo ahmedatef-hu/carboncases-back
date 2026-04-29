@@ -19,17 +19,32 @@ const query = async (text, params) => {
     let paramIndex = 1;
     const convertedText = text.replace(/\?/g, () => `$${paramIndex++}`);
     
-    const result = await pool.query(convertedText, params);
+    // Check if it's an INSERT query and add RETURNING id if not present
+    let finalText = convertedText;
+    if (convertedText.trim().toUpperCase().startsWith('INSERT') && 
+        !convertedText.toUpperCase().includes('RETURNING')) {
+      finalText = convertedText + ' RETURNING id';
+    }
     
-    // For INSERT queries with RETURNING, extract the ID
-    if (text.trim().toUpperCase().includes('RETURNING') && result.rows.length > 0) {
-      result.rows.insertId = result.rows[0].id;
+    const result = await pool.query(finalText, params);
+    
+    // For INSERT queries, extract the ID
+    if (finalText.toUpperCase().includes('RETURNING') && result.rows.length > 0) {
+      // Create a result object that mimics MySQL2 format
+      const mysqlResult = {
+        insertId: result.rows[0].id,
+        affectedRows: result.rowCount,
+        ...result.rows[0]
+      };
+      return [[mysqlResult], result.fields];
     }
     
     // Return in MySQL2 format [rows, fields]
     return [result.rows, result.fields];
   } catch (error) {
     console.error('Database query error:', error);
+    console.error('Query:', text);
+    console.error('Params:', params);
     throw error;
   }
 };
