@@ -79,11 +79,11 @@ router.post('/', authenticateUser, async (req, res) => {
 
     // Create order
     const [orderResult] = await db.query(
-      'INSERT INTO orders (user_id, total_amount, status, shipping_address) VALUES (?, ?, ?, ?) RETURNING id',
+      'INSERT INTO orders (user_id, total_amount, status, shipping_address) VALUES (?, ?, ?, ?)',
       [userId, totalPrice, 'pending', shippingAddress]
     );
 
-    const orderId = orderResult[0].id;
+    const orderId = orderResult.insertId || orderResult[0]?.id;
 
     // Insert order items (stock update removed)
     for (const item of orderItems) {
